@@ -1,14 +1,20 @@
 #! /usr/bin/env python2
 
 import vcf
+from vcf import utils
 import hgvs
+import hgvs.dataproviders.uta
+import hgvs.parser
+import hgvs.assemblymapper
+from bioutils.assemblies import make_name_ac_map
 
 __author__ = 'Anna Majewski'
+
+
 ## Damit das Programm funktioniert, musste der Interpreter auf 2.7. gestellt werden.
 
 
 class Assignment3:
-    
     def __init__(self):
         ## Check if pyvcf is installed
         print("PyVCF version: %s" % vcf.VERSION)
@@ -24,7 +30,6 @@ class Assignment3:
         self.file_mother = vcf.Reader(open(self.filename_mother, 'r'))
         self.file_father = vcf.Reader(open(self.filename_father, 'r'))
         self.file_son = vcf.Reader(open(self.filename_son, 'r'))
-        
 
     def get_total_number_of_variants_mother(self):
         '''
@@ -37,8 +42,7 @@ class Assignment3:
         for record in self.file_mother:
             anzahl += 1
         return anzahl
-        
-        
+
     def get_total_number_of_variants_father(self):
         '''
         Return the total number of identified variants in the father
@@ -50,8 +54,7 @@ class Assignment3:
         for record in self.file_father:
             anzahl += 1
         return anzahl
-       
-        
+
     def get_variants_shared_by_father_and_son(self):
         '''
         Return the number of identified variants shared by father and son
@@ -69,8 +72,6 @@ class Assignment3:
 
         return anzahl
 
-        
-        
     def get_variants_shared_by_mother_and_son(self):
         '''
         Return the number of identified variants shared by mother and son
@@ -87,7 +88,7 @@ class Assignment3:
                 anzahl += 1
 
         return anzahl
-        
+
     def get_variants_shared_by_trio(self):
         '''
         Return the number of identified variants shared by father, mother and son
@@ -106,7 +107,6 @@ class Assignment3:
                     anzahl += 1
 
         return anzahl
-        
 
     def merge_mother_father_son_into_one_vcf(self):
         '''
@@ -121,35 +121,90 @@ class Assignment3:
         writer = vcf.Writer(trio_file, self.file_son, "\n")
         ## http://nullege.com/codes/search/vcf.utils.walk_together
         ## um mehrere vcf Files gleichzeitig zu bearbeiten kann man vcf.utils.walk_together benutzen
-        # wie das genau geht, muss ich mich noch weiter informieren ...
+        for records in utils.walk_together(self.file_father, self.file_father, self.file_son):
+            ## jeder Eintrag der nicht None ist wird in das VCF geschrieben
+            for eintrag in records:
+                if eintrag is not None:
+                    writer.write_record(eintrag)
 
-        print("TODO")
-        
-        
+        success = "The file has been merged successfully to trio_file.vcf"
+
+        return success
+
     def convert_first_variants_of_son_into_HGVS(self):
         '''
         Convert the first 100 variants identified in the son into the corresponding transcript HGVS.
         Each variant should be mapped to all corresponding transcripts. Pointer:
         - https://hgvs.readthedocs.io/en/master/examples/manuscript-example.html#project-genomic-variant-to-a-new-transcript
-        :return: 
+        :return: mapping of variant to corresponding transcripts
         '''
-        print("TODO")
-        
-    
+        ## von SPabinger so uebernommen:
+        ## Connect to UTA
+        hdp = hgvs.dataproviders.uta.connect()
+
+        ## Used to get the transcripts
+        # normalize = False wird genommen um die Warnung zu unterdruecken
+        assembly_mapper = hgvs.assemblymapper.AssemblyMapper(hdp, normalize=False)  # EasyVariantMapper before
+
+        ## Used for parsing
+        hgvsparser = hgvs.parser.Parser()  # Parser
+
+        ## Oeffnen des Streams fuer den Sohn:
+        self.file_son = vcf.Reader(open(self.filename_son, 'r'))
+
+        anzahl = 0
+        success = 0
+        exception = 0
+
+        for record in self.file_son:
+            if anzahl < 100:
+                ## Get chromosome mapping
+                refseq_nc_number = make_name_ac_map("GRCh37.p13")[record.CHROM[3:]]
+                ## Format: nc_number :g. position reference > alternative
+                genome_hgvs = "%s:g.%s%s>%s" % (refseq_nc_number, str(record.POS), str(record.REF), str(record.ALT[0]))
+                try:
+                    genom = hgvsparser.parse_hgvs_variant(genome_hgvs)
+                    for transcript in assembly_mapper.relevant_transcripts(genom):
+                        try:
+                            ## ist es eine codierende Sequenz?
+                            coding = assembly_mapper.g_to_c(genom, transcript)
+                            success += 1
+                            print("Number of variant: %s\n%s corresponds to the coding sequence %s" % (anzahl+1, genom, coding))
+                        except hgvs.exceptions.HGVSUsageError:
+                            ## ist es keine codierende Sequenz?
+                            noncoding = assembly_mapper.g_to_n(genom, transcript)
+                            success += 1
+                            print("Number of variant: %s\n%s corresponds to the noncoding sequence %s" % (anzahl + 1, genom, noncoding))
+                        except:
+                            ## ansonsten ist es eine exception
+                            exception += 1
+                except Exception:
+                    exception += 1
+
+            else:
+                ## sobald die ersten 100 Varianten durch sind, abbrechen
+                break
+            ## jede Runde wird die Anzahl um 1 erhoeht.
+            anzahl += 1
+        print ("Number of successfull mappings: {}\n"
+               "Number of exceptions: {}".format(success, exception))
+
     def print_summary(self):
         ## Hier werden alle Methoden aufgerufen und mit einem String versehen, der beschreibt was sie ausgeben.
-        print("Total Number of Variants in the Mother: %s" % self.get_total_number_of_variants_mother())
-        print("Total Number of Variants in the Father: %s" % self.get_total_number_of_variants_father())
-        print("Total Number of Variants shared by Father and Son: %s" % self.get_variants_shared_by_father_and_son())
-        print("Total Number of Variants shared by Mother and Son: %s" % self.get_variants_shared_by_mother_and_son())
-        print("Total Number of Variants shared by all three: %s" % self.get_variants_shared_by_trio())
-        #print(self.merge_mother_father_son_into_one_vcf())
-    
-        
+        print("Total Number of Variants in the Mother: %s" % self.get_total_number_of_variants_mother())                # 38693
+        print("Total Number of Variants in the Father: %s" % self.get_total_number_of_variants_father())                # 38641
+        print("Total Number of Variants shared by Father and Son: %s" % self.get_variants_shared_by_father_and_son())   # 13
+        print("Total Number of Variants shared by Mother and Son: %s" % self.get_variants_shared_by_mother_and_son())   # 1
+        print("Total Number of Variants shared by all three: %s" % self.get_variants_shared_by_trio())                  # 1
+        print("Merge status: %s" % self.merge_mother_father_son_into_one_vcf())
+        ## Hier werden alle passenden Mappings zu den Varianten gesucht. Das dauert eine Weile.
+        ## Durch die Anzahl der Varianten kann man zumindest abschaetzen, wann es zu Ende ist.
+        ## Bitte um Geduld.
+        print("_____________")
+        self.convert_first_variants_of_son_into_HGVS()
+
 if __name__ == '__main__':
     print("Assignment 3")
-    assignment1 = Assignment3()
-    assignment1.print_summary()
-    
-    
-
+    print("Author: %s\n" % __author__)
+    assignment3 = Assignment3()
+    assignment3.print_summary()
