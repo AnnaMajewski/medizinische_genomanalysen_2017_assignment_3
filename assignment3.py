@@ -57,8 +57,8 @@ class Assignment3:
 
     def get_variants_shared_by_father_and_son(self):
         '''
-        Return the number of identified variants shared by father and son
-        :return: number of identified variants shared by father and son
+        Return the number of identified variants shared by mother and son
+        :return:
         '''
         ## Oeffnen mit vcf.Reader
         self.file_father = vcf.Reader(open(self.filename_father, 'r'))
@@ -66,8 +66,13 @@ class Assignment3:
 
         anzahl = 0
 
-        for record in self.file_father:
-            if record in self.file_son:
+        ## geteilt verwendet utils.walk_together um ueber mehrere Dateien zu iterieren
+        geteilt = utils.walk_together(self.file_father, self.file_son)
+
+        for record in geteilt:
+            ## record[0] entspricht dem Vater, record[0] entspricht dem Sohn
+            ## wenn diese records nicht leer sind, dann wird die Anzahl um 1 erhoeht.
+            if not record[0] is None and not record[1] is None:
                 anzahl += 1
 
         return anzahl
@@ -83,8 +88,11 @@ class Assignment3:
 
         anzahl = 0
 
-        for record in self.file_mother:
-            if record in self.file_son:
+        geteilt = utils.walk_together(self.file_mother, self.file_son)
+        for record in geteilt:
+            ## record[0] entspricht der Mutter, record[0] entspricht dem Sohn
+            ## wenn diese records nicht leer sind, dann wird die Anzahl um 1 erhoeht.
+            if not record[0] is None and not record[1] is None:
                 anzahl += 1
 
         return anzahl
@@ -92,7 +100,7 @@ class Assignment3:
     def get_variants_shared_by_trio(self):
         '''
         Return the number of identified variants shared by father, mother and son
-        :return: 
+        :return:
         '''
         ## Oeffnen mit vcf.Reader
         self.file_mother = vcf.Reader(open(self.filename_mother, 'r'))
@@ -101,10 +109,12 @@ class Assignment3:
 
         anzahl = 0
 
-        for record in self.file_mother:
-            if record in self.file_father:
-                if record in self.file_son:
-                    anzahl += 1
+        geteilt = utils.walk_together(self.file_mother, self.file_father, self.file_son)
+        for record in geteilt:
+            ## record[0] entspricht der Mutter, record[0] entspricht dem Vater und record[2] entspricht dem Sohn
+            ## wenn diese records nicht leer sind, dann wird die Anzahl um 1 erhoeht.
+            if not record[0] is None and not record[1] is None and not record[2] is None:
+                anzahl += 1
 
         return anzahl
 
@@ -156,7 +166,12 @@ class Assignment3:
         success = 0
         exception = 0
 
+        print("Starting conversion. Please wait.")
+
         for record in self.file_son:
+            ## Oeffnen einer Datei, damit das Ergebnis in einer Datei steht.
+            ## Mode = a fuer append, damit die Zeilen angefuegt und nicht ueberschrieben werden
+            file = open('100variants.hgvs', 'a')
             if anzahl < 100:
                 ## Get chromosome mapping
                 refseq_nc_number = make_name_ac_map("GRCh37.p13")[record.CHROM[3:]]
@@ -169,12 +184,14 @@ class Assignment3:
                             ## ist es eine codierende Sequenz?
                             coding = assembly_mapper.g_to_c(genom, transcript)
                             success += 1
-                            print("Number of variant: %s\n%s corresponds to the coding sequence %s" % (anzahl+1, genom, coding))
+                            file.write("Number of variant: %s\n%s corresponds to the coding sequence %s\n" % (anzahl+1, genom, coding))
+                            #print("Number of variant: %s\n%s corresponds to the coding sequence %s" % (anzahl+1, genom, coding))
                         except hgvs.exceptions.HGVSUsageError:
                             ## ist es keine codierende Sequenz?
                             noncoding = assembly_mapper.g_to_n(genom, transcript)
                             success += 1
-                            print("Number of variant: %s\n%s corresponds to the noncoding sequence %s" % (anzahl + 1, genom, noncoding))
+                            file.write("Number of variant: %s\n%s corresponds to the noncoding sequence %s\n" % (anzahl + 1, genom, noncoding))
+                            #print("Number of variant: %s\n%s corresponds to the noncoding sequence %s" % (anzahl + 1, genom, noncoding))
                         except:
                             ## ansonsten ist es eine exception
                             exception += 1
@@ -186,6 +203,18 @@ class Assignment3:
                 break
             ## jede Runde wird die Anzahl um 1 erhoeht.
             anzahl += 1
+            ## eine kleine Hilfe, die anzeigt wie weit wir schon sind.
+            if anzahl == 10:
+                print("Conversion is at 10%")
+            if anzahl == 25:
+                print("Conversion is at 25%")
+            if anzahl == 50:
+                print("Conversion is at 50%")
+            if anzahl == 75:
+                print("Conversion is at 75%")
+            if anzahl == 90:
+                print("Conversion is at 90%")
+
         print ("Number of successfull mappings: {}\n"
                "Number of exceptions: {}".format(success, exception))
 
@@ -193,12 +222,13 @@ class Assignment3:
         ## Hier werden alle Methoden aufgerufen und mit einem String versehen, der beschreibt was sie ausgeben.
         print("Total Number of Variants in the Mother: %s" % self.get_total_number_of_variants_mother())                # 38693
         print("Total Number of Variants in the Father: %s" % self.get_total_number_of_variants_father())                # 38641
-        print("Total Number of Variants shared by Father and Son: %s" % self.get_variants_shared_by_father_and_son())   # 13
-        print("Total Number of Variants shared by Mother and Son: %s" % self.get_variants_shared_by_mother_and_son())   # 1
-        print("Total Number of Variants shared by all three: %s" % self.get_variants_shared_by_trio())                  # 1
+        print("Total Number of Variants shared by Father and Son: %s" % self.get_variants_shared_by_father_and_son())   # 30142
+        print("Total Number of Variants shared by Mother and Son: %s" % self.get_variants_shared_by_mother_and_son())   # 30216
+        print("Total Number of Variants shared by all three: %s" % self.get_variants_shared_by_trio())                  # 22533
         print("Merge status: %s" % self.merge_mother_father_son_into_one_vcf())
         ## Hier werden alle passenden Mappings zu den Varianten gesucht. Das dauert eine Weile.
-        ## Durch die Anzahl der Varianten kann man zumindest abschaetzen, wann es zu Ende ist.
+        ## Bei 10, 25, 50, 75 und 90% wird ausgegeben, dass man schon so weit ist.
+        ## Die Varianten werden in eine Datei geschrieben: 100variants.hgvs
         ## Bitte um Geduld.
         print("_____________")
         self.convert_first_variants_of_son_into_HGVS()
