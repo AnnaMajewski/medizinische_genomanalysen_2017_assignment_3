@@ -58,6 +58,7 @@ class Assignment3:
     def get_variants_shared_by_father_and_son(self):
         '''
         Return the number of identified variants shared by mother and son
+        Also returns a file containing the variants.
         :return:
         '''
         ## Oeffnen mit vcf.Reader
@@ -74,12 +75,19 @@ class Assignment3:
             ## wenn diese records nicht leer sind, dann wird die Anzahl um 1 erhoeht.
             if not record[0] is None and not record[1] is None:
                 anzahl += 1
+                ## Durch einen Hinweis von Frank Ruge habe erst verstanden, dass hier nicht nur die Anzahl der Variants,
+                ## sondern auch die Variants an sich gefragt sind. Deshalb wurden sie auf diese Weise angefuegt.
+                for eintrag in record:
+                    father_son = open("father_son.vcf", "w")
+                    writer = vcf.Writer(father_son, self.file_son, "\n")
+                    writer.write_record(eintrag)
 
         return anzahl
 
     def get_variants_shared_by_mother_and_son(self):
         '''
         Return the number of identified variants shared by mother and son
+        Also returns a file containing the variants.
         :return: 
         '''
         ## Oeffnen mit vcf.Reader
@@ -94,12 +102,17 @@ class Assignment3:
             ## wenn diese records nicht leer sind, dann wird die Anzahl um 1 erhoeht.
             if not record[0] is None and not record[1] is None:
                 anzahl += 1
+                for eintrag in record:
+                    mother_son = open("mother_son.vcf", "w")
+                    writer = vcf.Writer(mother_son, self.file_son, "\n")
+                    writer.write_record(eintrag)
 
         return anzahl
 
     def get_variants_shared_by_trio(self):
         '''
         Return the number of identified variants shared by father, mother and son
+        Also returns a file containing the variants.
         :return:
         '''
         ## Oeffnen mit vcf.Reader
@@ -111,10 +124,14 @@ class Assignment3:
 
         geteilt = utils.walk_together(self.file_mother, self.file_father, self.file_son)
         for record in geteilt:
-            ## record[0] entspricht der Mutter, record[0] entspricht dem Vater und record[2] entspricht dem Sohn
+            ## record[0] entspricht der Mutter, record[1] entspricht dem Vater und record[2] entspricht dem Sohn
             ## wenn diese records nicht leer sind, dann wird die Anzahl um 1 erhoeht.
             if not record[0] is None and not record[1] is None and not record[2] is None:
                 anzahl += 1
+                for eintrag in record:
+                    mother_father_son = open("mother_father_son.vcf", "w")
+                    writer = vcf.Writer(mother_father_son, self.file_son, "\n")
+                    writer.write_record(eintrag)
 
         return anzahl
 
@@ -185,13 +202,11 @@ class Assignment3:
                             coding = assembly_mapper.g_to_c(genom, transcript)
                             success += 1
                             file.write("Number of variant: %s\n%s corresponds to the coding sequence %s\n" % (anzahl+1, genom, coding))
-                            #print("Number of variant: %s\n%s corresponds to the coding sequence %s" % (anzahl+1, genom, coding))
                         except hgvs.exceptions.HGVSUsageError:
                             ## ist es keine codierende Sequenz?
                             noncoding = assembly_mapper.g_to_n(genom, transcript)
                             success += 1
                             file.write("Number of variant: %s\n%s corresponds to the noncoding sequence %s\n" % (anzahl + 1, genom, noncoding))
-                            #print("Number of variant: %s\n%s corresponds to the noncoding sequence %s" % (anzahl + 1, genom, noncoding))
                         except:
                             ## ansonsten ist es eine exception
                             exception += 1
