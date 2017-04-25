@@ -69,16 +69,16 @@ class Assignment3:
 
         ## geteilt verwendet utils.walk_together um ueber mehrere Dateien zu iterieren
         geteilt = utils.walk_together(self.file_father, self.file_son)
+        father_son = open("father_son.vcf", "w")
 
         for record in geteilt:
-            ## record[0] entspricht dem Vater, record[0] entspricht dem Sohn
+            ## record[0] entspricht dem Vater, record[1] entspricht dem Sohn
             ## wenn diese records nicht leer sind, dann wird die Anzahl um 1 erhoeht.
             if not record[0] is None and not record[1] is None:
                 anzahl += 1
                 ## Durch einen Hinweis von Frank Ruge habe erst verstanden, dass hier nicht nur die Anzahl der Variants,
                 ## sondern auch die Variants an sich gefragt sind. Deshalb wurden sie auf diese Weise angefuegt.
                 for eintrag in record:
-                    father_son = open("father_son.vcf", "w")
                     writer = vcf.Writer(father_son, self.file_son, "\n")
                     writer.write_record(eintrag)
 
@@ -97,13 +97,13 @@ class Assignment3:
         anzahl = 0
 
         geteilt = utils.walk_together(self.file_mother, self.file_son)
+        mother_son = open("mother_son.vcf", "w")
         for record in geteilt:
-            ## record[0] entspricht der Mutter, record[0] entspricht dem Sohn
+            ## record[0] entspricht der Mutter, record[1] entspricht dem Sohn
             ## wenn diese records nicht leer sind, dann wird die Anzahl um 1 erhoeht.
             if not record[0] is None and not record[1] is None:
                 anzahl += 1
                 for eintrag in record:
-                    mother_son = open("mother_son.vcf", "w")
                     writer = vcf.Writer(mother_son, self.file_son, "\n")
                     writer.write_record(eintrag)
 
@@ -123,13 +123,13 @@ class Assignment3:
         anzahl = 0
 
         geteilt = utils.walk_together(self.file_mother, self.file_father, self.file_son)
+        mother_father_son = open("mother_father_son.vcf", "w")
         for record in geteilt:
             ## record[0] entspricht der Mutter, record[1] entspricht dem Vater und record[2] entspricht dem Sohn
             ## wenn diese records nicht leer sind, dann wird die Anzahl um 1 erhoeht.
             if not record[0] is None and not record[1] is None and not record[2] is None:
                 anzahl += 1
                 for eintrag in record:
-                    mother_father_son = open("mother_father_son.vcf", "w")
                     writer = vcf.Writer(mother_father_son, self.file_son, "\n")
                     writer.write_record(eintrag)
 
